@@ -63,8 +63,18 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 - Room  
 - Hilt (DI)  
 - MVVM architecture
+- Paging 3
 
 ---
+
+| Home Screen | Details Screen |
+|-------------|---------------|
+| <img src="https://github.com/user-attachments/assets/59d77090-8ded-474e-86f2-739e99e188e9" width="300"/> | <img src="https://github.com/user-attachments/assets/b6228c66-3f74-4faa-b356-4f7106c10734" width="300"/> |
+
+| Filters | Search Screen |
+|-------------|---------------|
+| <img src="https://github.com/user-attachments/assets/0f18bd47-7b6e-4899-ae3d-650c47ab631f" width="300" />| <img width="300" src="https://github.com/user-attachments/assets/80fdad93-7384-4629-8d30-e0c2bd710150" /> |
+
 
 ## Future Work
 

@@ -81,7 +81,6 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 
 **Nanda Kishore**  
 [GitHub Repository](https://github.com/nandak17/MoviesApp)  
-[Demo Video](https://drive.google.com/file/d/1r_af3tw6-A1aQCwEaL4PB6Wcc1RGb8FT/view)
 
 ---
 

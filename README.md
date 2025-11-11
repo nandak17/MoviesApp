@@ -1,4 +1,4 @@
-# MoviesApp – Android Internship Assignment
+# MoviesApp 
 
 Welcome to **MoviesApp**, the app to discover and browse movies and TV shows using the Watchmode API with a clean MVVM architecture and Jetpack Compose UI.
 
@@ -31,7 +31,7 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 
 ## Demo Video
 
-[▶️ Watch Demo on Google Drive](https://drive.google.com/file/d/1r_af3tw6-A1aQCwEaL4PB6Wcc1RGb8FT/view)  
+[▶️ Watch Demo on Google Drive](https://drive.google.com/file/d/1HjWmgZhk2_KgwsKE26fpcP6uNsC1oFzW/view?usp=drivesdk)
 
 ---
 

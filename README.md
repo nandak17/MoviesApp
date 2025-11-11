@@ -6,14 +6,16 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 
 ## ✨ Features
 
-- 🏠 Home Screen with tab toggle between Movies and TV Shows  
-- 💫 Shimmer effect during data load  
+- 🏠 Home Screen with toggle between Movies and TV Shows  
+- 💫 Shimmer effect during data loading  
 - 🔀 Simultaneous API calls using RxKotlin Single.zip  
-- 📺 Details Screen showing title, description, release_date, poster  
-- ⚠️ Graceful Error Handling with Snackbars & Retry button  
-- 🔄 Auto-reload on network reconnect  
-- 🗃️ Cached data support with Room  
-- 🔧 Dependency Injection using Hilt  
+- 📺 Details Screen displaying title, description, release date, poster  
+- ⚠️ Graceful error handling with Snackbar & Retry button  
+- 🔄 Auto-reload data on network reconnect  
+- 🗃️ Offline-first architecture using Room database caching  
+- 📦 Paging 3 support for efficient list loading  
+- 🌐 Network Awareness to detect connectivity changes and update UI accordingly  
+- 🔧 Dependency Injection with Hilt
 
 ---
 

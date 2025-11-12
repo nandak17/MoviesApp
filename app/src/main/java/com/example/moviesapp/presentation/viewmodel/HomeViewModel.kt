@@ -1,4 +1,4 @@
-// presentation/viewmodel/HomeViewModel.kt
+
 package com.example.moviesapp.presentation.viewmodel
 
 import android.util.Log
@@ -7,11 +7,15 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.rxjava3.cachedIn
+import com.example.moviesapp.data.model.PersonCredit
 import com.example.moviesapp.data.model.Title
 import com.example.moviesapp.data.network.ConnectivityObserver
+import com.example.moviesapp.data.remote.WatchmodeApiService
 import com.example.moviesapp.data.repository.TitleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -34,7 +38,7 @@ enum class SortOption(val displayName: String) {
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TitleRepository,
-    private val connectivityObserver: ConnectivityObserver
+    private val connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
 
     companion object {
@@ -117,6 +121,7 @@ class HomeViewModel @Inject constructor(
                 )
         )
     }
+
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadTVShows() {

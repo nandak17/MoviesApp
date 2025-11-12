@@ -1,5 +1,6 @@
 package com.example.moviesapp.data.remote
 
+import com.example.moviesapp.BuildConfig
 import com.example.moviesapp.data.model.*
 import io.reactivex.rxjava3.core.Single
 import retrofit2.http.GET
@@ -37,4 +38,20 @@ interface WatchmodeApiService {
         @Path("title_id") titleId: Int,
         @Query("apiKey") apiKey: String
     ): Single<TitleDetails>
+
+    @GET("autocomplete-search/")
+    fun autocompleteSearch(
+        @Query("apiKey") apiKey: String = BuildConfig.WATCHMODE_API_KEY,
+        @Query("search_value") query: String,
+        @Query("search_type") searchType: Int = 2
+    ): Single<AutocompleteResponse>
+
+    @GET("title/{title_id}/cast-crew/")
+    fun getCastAndCrew(
+        @Path("title_id") titleId: Int,
+        @Query("apiKey") apiKey: String = BuildConfig.WATCHMODE_API_KEY
+    ): Single<List<PersonCredit>>
+
+
+
 }

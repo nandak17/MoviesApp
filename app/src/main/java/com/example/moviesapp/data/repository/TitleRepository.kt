@@ -8,6 +8,7 @@ import com.example.moviesapp.data.local.dao.TitleDao
 import com.example.moviesapp.data.local.dao.TitleDetailsDao
 import com.example.moviesapp.data.mapper.toEntity
 import com.example.moviesapp.data.mapper.toModel
+import com.example.moviesapp.data.model.PersonCredit
 import com.example.moviesapp.data.model.StreamingSource
 import com.example.moviesapp.data.model.StreamingSourcesResponse
 import com.example.moviesapp.data.model.Title
@@ -15,6 +16,7 @@ import com.example.moviesapp.data.model.TitleDetails
 import com.example.moviesapp.data.paging.MoviesRemoteMediator
 import com.example.moviesapp.data.paging.TVShowsRemoteMediator
 import com.example.moviesapp.data.remote.WatchmodeApiService
+import com.example.moviesapp.presentation.viewmodel.ContentType
 import com.example.moviesapp.presentation.viewmodel.SortOption
 import io.reactivex.rxjava3.core.Flowable
 import io.reactivex.rxjava3.core.Single
@@ -92,6 +94,35 @@ class TitleRepository @Inject constructor(
         return apiService.getTitleSources(titleId, apiKey, "US,IN")
             .subscribeOn(Schedulers.io())
     }
+
+    fun getCastAndCrew(titleId: Int): Single<List<PersonCredit>> {
+        return apiService.getCastAndCrew(titleId)
+    }
+
+
+    fun searchTitles(query: String, contentType: ContentType): Single<List<Title>> {
+        val searchType = when(contentType) {
+            ContentType.MOVIES -> 3  // Movies only
+            ContentType.TV_SHOWS -> 4  // TV only
+        }
+
+        return apiService.autocompleteSearch(query = query, searchType = searchType)
+            .map { response ->
+                response.results.map { result ->
+                    Title(
+                        id = result.id,
+                        title = result.name,
+                        year = result.year,
+                        type = result.type,
+                        poster = result.image_url,
+                        imdb_id = null,
+                        tmdb_id = result.tmdb_id,
+                        user_rating = null
+                    )
+                }
+            }
+    }
+
 
     @SuppressLint("CheckResult")
     fun getTitleDetails(titleId: Int): Single<TitleDetails> {

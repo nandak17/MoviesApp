@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.moviesapp.data.model.PersonCredit
 import com.example.moviesapp.data.model.TitleDetails
 import com.example.moviesapp.data.network.ConnectivityObserver
 import com.example.moviesapp.data.repository.TitleRepository
@@ -20,7 +21,11 @@ import javax.inject.Inject
 
 sealed class DetailsUiState {
     object Loading : DetailsUiState()
-    data class Success(val details: TitleDetails) : DetailsUiState()
+    data class Success(
+        val details: TitleDetails,
+        val cast: List<PersonCredit>,
+        val crew: List<PersonCredit>
+    ) : DetailsUiState()
     data class Error(val message: String) : DetailsUiState()
 }
 
@@ -85,14 +90,21 @@ class DetailsViewModel @Inject constructor(
                 .observeOn(AndroidSchedulers.mainThread())
                 .flatMap { details ->
                     repository.getTitleSources(titleId)
-                        .map { sources ->
-                            details.copy(sources = sources)
-                        }
+                        .map { sources -> details.copy(sources = sources) }
                         .onErrorReturn { details }
                 }
+                .flatMap { detailsWithSources ->
+                    repository.getCastAndCrew(titleId)
+                        .map { credits ->
+                            val cast = credits.filter { it.type == "Cast" }
+                            val crew = credits.filter { it.type == "Crew" }
+                            Triple(detailsWithSources, cast, crew)
+                        }
+                        .onErrorReturn { Triple(detailsWithSources, emptyList(), emptyList()) }
+                }
                 .subscribe(
-                    { details ->
-                        _uiState.value = DetailsUiState.Success(details)
+                    { (details, cast, crew) ->
+                        _uiState.value = DetailsUiState.Success(details, cast, crew)
                     },
                     { error ->
                         _uiState.value = DetailsUiState.Error(error.message ?: "Unknown error")

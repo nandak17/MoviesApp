@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.example.moviesapp.data.model.PersonCredit
 import com.example.moviesapp.data.model.StreamingSource
 import com.example.moviesapp.data.model.TitleDetails
 import com.example.moviesapp.data.network.ConnectivityObserver
@@ -72,11 +74,14 @@ fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: ()
                     ShimmerDetailsScreen()
                 }
             }
-
             is DetailsUiState.Success -> {
-                AppleTVStyleDetailsContent(details = state.details, onBackClick = onBackClick)
+                DetailsContent(
+                    details = state.details,
+                    cast = state.cast,
+                    crew = state.crew,
+                    onBackClick = onBackClick
+                )
             }
-
             is DetailsUiState.Error -> {
                 Box(
                     modifier = Modifier.fillMaxSize().background(Color.Black),
@@ -97,7 +102,6 @@ fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: ()
             }
         }
 
-        // Network banners
         NetworkBanner(
             networkStatus = networkStatus,
             showConnectedBanner = showConnectedBanner,
@@ -107,8 +111,10 @@ fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: ()
 }
 
 @Composable
-private fun AppleTVStyleDetailsContent(
+private fun DetailsContent(
     details: TitleDetails,
+    cast: List<PersonCredit>,
+    crew: List<PersonCredit>,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -176,7 +182,6 @@ private fun AppleTVStyleDetailsContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Top section
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -363,6 +368,45 @@ private fun AppleTVStyleDetailsContent(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
+                Text(
+                    text = "Cast",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(horizontal = 20.dp)) {
+                    items(cast.take(10)) { castMember ->
+                        CastCrewItem(
+                            name = castMember.full_name,
+                            role = castMember.role,
+                            imageUrl = castMember.headshot_url,
+                            onClick = { /* Handle click if needed */ }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Crew",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(horizontal = 20.dp)) {
+                    items(crew.take(10)) { crewMember ->
+                        CastCrewItem(
+                            name = crewMember.full_name,
+                            role = crewMember.role,
+                            imageUrl = crewMember.headshot_url,
+                            onClick = {  }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -400,6 +444,43 @@ private fun AppleTVStyleDetailsContent(
         }
     }
 }
+
+@Composable
+fun CastCrewItem(name: String, role: String, imageUrl: String?, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.width(100.dp).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (!imageUrl.isNullOrBlank() && !imageUrl.contains("empty_headshot")) {
+            SubcomposeAsyncImage(
+                model = imageUrl,
+                contentDescription = name,
+                loading = {
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape).background(Color.DarkGray),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp) }
+                },
+                error = {
+                    Icon(Icons.Default.Person, contentDescription = "Person", tint = Color.White, modifier = Modifier.size(48.dp))
+                },
+                modifier = Modifier.size(48.dp).clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Person",
+                tint = Color.White,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White)
+        Text(role, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Color.LightGray)
+    }
+}
+
 
 @SuppressLint("DefaultLocale")
 @Composable

@@ -31,11 +31,13 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.example.moviesapp.data.model.AutocompleteResult
 import com.example.moviesapp.data.model.Title
 import com.example.moviesapp.data.network.ConnectivityObserver
 import com.example.moviesapp.presentation.ui.components.ShimmerHomeScreen
 import com.example.moviesapp.presentation.viewmodel.ContentType
 import com.example.moviesapp.presentation.viewmodel.HomeViewModel
+import com.example.moviesapp.presentation.viewmodel.SearchViewModel
 import com.example.moviesapp.presentation.viewmodel.SortOption
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -43,24 +45,28 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel(),
+    homeViewModel: HomeViewModel = hiltViewModel(),
+    searchViewModel: SearchViewModel = hiltViewModel(),
     onTitleClick: (Int) -> Unit
 ) {
-    val selectedTab by viewModel.selectedTab.collectAsState()
-    val sortOption by viewModel.sortOption.collectAsState()
-    val networkStatus by viewModel.networkStatus.collectAsState()
-    val moviesPagingData = viewModel.moviesPagingData.collectAsLazyPagingItems()
-    val tvShowsPagingData = viewModel.tvShowsPagingData.collectAsLazyPagingItems()
+    val selectedTab by homeViewModel.selectedTab.collectAsState()
+    val sortOption by homeViewModel.sortOption.collectAsState()
+    val networkStatus by homeViewModel.networkStatus.collectAsState()
+    val moviesPagingData = homeViewModel.moviesPagingData.collectAsLazyPagingItems()
+    val tvShowsPagingData = homeViewModel.tvShowsPagingData.collectAsLazyPagingItems()
+    val autocompleteResults by searchViewModel.autocompleteResults.collectAsState()
 
     var isSearchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showConnectedBanner by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
 
+    // debounce search input and trigger autocomplete
     var debouncedQuery by remember { mutableStateOf("") }
     LaunchedEffect(searchQuery) {
         delay(300)
         debouncedQuery = searchQuery.trim()
+        searchViewModel.searchAutocomplete(debouncedQuery)
     }
 
     LaunchedEffect(networkStatus) {
@@ -73,26 +79,19 @@ fun HomeScreen(
         }
     }
 
-    val pagerState = rememberPagerState(initialPage = if (selectedTab == ContentType.MOVIES) 0 else 1,
+    val pagerState = rememberPagerState(
+        initialPage = if (selectedTab == ContentType.MOVIES) 0 else 1,
         pageCount = { 2 }
     )
     val coroutineScope = rememberCoroutineScope()
+
     LaunchedEffect(pagerState.currentPage) {
-        viewModel.setSelectedTab(if (pagerState.currentPage == 0) ContentType.MOVIES else ContentType.TV_SHOWS)
+        homeViewModel.setSelectedTab(if (pagerState.currentPage == 0) ContentType.MOVIES else ContentType.TV_SHOWS)
     }
     LaunchedEffect(selectedTab) {
         val targetPage = if (selectedTab == ContentType.MOVIES) 0 else 1
         if (pagerState.currentPage != targetPage) {
             pagerState.animateScrollToPage(targetPage)
-        }
-    }
-
-    val currentItems = if (pagerState.currentPage == 0) moviesPagingData else tvShowsPagingData
-    val filteredItems = remember(debouncedQuery, currentItems.itemSnapshotList) {
-        if (debouncedQuery.isBlank()) emptyList()
-        else currentItems.itemSnapshotList.items.filter { title ->
-            title.title.contains(debouncedQuery, ignoreCase = true) ||
-                    title.year?.toString()?.contains(debouncedQuery) == true
         }
     }
 
@@ -110,9 +109,13 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(0.7f),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.weight(1f),
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.weight(1f),
                                 placeholder = {
-                                    Text(if (pagerState.currentPage == 0) "Search movies..." else "Search TV shows...") },
+                                    Text(if (pagerState.currentPage == 0) "Search movies..." else "Search TV shows...")
+                                },
                                 singleLine = true,
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
@@ -126,7 +129,7 @@ fun HomeScreen(
                             )
                             if (debouncedQuery.isNotBlank()) {
                                 Text(
-                                    "${filteredItems.size}",
+                                    "${autocompleteResults.size}",
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(horizontal = 8.dp)
@@ -142,10 +145,7 @@ fun HomeScreen(
                                 tint = Color.White
                             )
                         }
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
-                        ) {
+                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                             SortOption.entries.forEach { option ->
                                 DropdownMenuItem(
                                     text = {
@@ -165,24 +165,22 @@ fun HomeScreen(
                                         }
                                     },
                                     onClick = {
-                                        viewModel.setSortOption(option)
+                                        homeViewModel.setSortOption(option)
                                         showSortMenu = false
                                     }
                                 )
                             }
                         }
                     }
-                    IconButton(
-                        onClick = {
-                            if (isSearchExpanded) {
-                                searchQuery = ""
-                                debouncedQuery = ""
-                                isSearchExpanded = false
-                            } else {
-                                isSearchExpanded = true
-                            }
+                    IconButton(onClick = {
+                        if (isSearchExpanded) {
+                            searchQuery = ""
+                            debouncedQuery = ""
+                            isSearchExpanded = false
+                        } else {
+                            isSearchExpanded = true
                         }
-                    ) {
+                    }) {
                         Icon(
                             imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
                             contentDescription = if (isSearchExpanded) "Close search" else "Search",
@@ -196,9 +194,11 @@ fun HomeScreen(
         containerColor = Color(0xff161616)
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier
+            Column(
+                modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)) {
+                    .padding(paddingValues)
+            ) {
                 if (!isSearchExpanded) {
                     Row(
                         Modifier
@@ -219,60 +219,45 @@ fun HomeScreen(
                         )
                     }
                 }
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f)
-                ) { page ->
-                    val items = if (page == 0) moviesPagingData else tvShowsPagingData
-                    if (isSearchExpanded && debouncedQuery.isNotBlank()) {
-                        SearchResults(results = filteredItems, onTitleClick = onTitleClick)
-                    } else if (isSearchExpanded && debouncedQuery.isBlank()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = Color.Gray
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    "Type to search...",
-                                    color = Color.White.copy(alpha = 0.6f),
-                                    fontSize = 16.sp
-                                )
+                HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
+                    when {
+                        isSearchExpanded && debouncedQuery.isNotBlank() -> {
+                            AutocompleteSearchResults(results = autocompleteResults, onTitleClick = onTitleClick)
+                        }
+                        isSearchExpanded && debouncedQuery.isBlank() -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = Color.Gray
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        "Type to search...",
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 16.sp
+                                    )
+                                }
                             }
                         }
-                    } else {
-                        PagingContent(items = items, onTitleClick = onTitleClick)
+                        else -> {
+                            val items = if (page == 0) moviesPagingData else tvShowsPagingData
+                            PagingContent(items = items, onTitleClick)
+                        }
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .absolutePadding(left = 0.dp, right = 0.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                NetworkBanner(
-                    networkStatus = networkStatus,
-                    showConnectedBanner = showConnectedBanner
-                )
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp).absolutePadding(left = 0.dp, right = 0.dp), contentAlignment = Alignment.TopCenter) {
+                NetworkBanner(networkStatus = networkStatus, showConnectedBanner = showConnectedBanner)
             }
         }
     }
 }
 
 @Composable
-private fun HomeTabButton(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
+private fun HomeTabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
     TextButton(onClick = onClick) {
         Text(
             text = text,
@@ -284,68 +269,73 @@ private fun HomeTabButton(
 }
 
 @Composable
-private fun SearchResults(
-    results: List<Title>,
-    onTitleClick: (Int) -> Unit
-) {
+fun AutocompleteSearchResults(results: List<AutocompleteResult>, onTitleClick: (Int) -> Unit) {
     if (results.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "No results found",
-                    color = Color.White,
-                    fontSize = 18.sp
-                )
+                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.Gray)
+                Spacer(Modifier.height(16.dp))
+                Text("No results found", color = Color.White, fontSize = 18.sp)
             }
         }
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            items(results.size) { index ->
-                TitleListItem(
-                    title = results[index],
-                    onClick = { onTitleClick(results[index].id) }
-                )
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
+            items(results.size) { idx ->
+                val item = results[idx]
+                AutocompleteResultListItem(result = item, onClick = { onTitleClick(item.id) })
             }
         }
     }
 }
 
 @Composable
-private fun PagingContent(
-    items: LazyPagingItems<Title>,
-    onTitleClick: (Int) -> Unit
-) {
+fun AutocompleteResultListItem(result: AutocompleteResult, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xff1E1E1E)),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!result.image_url.isNullOrEmpty()) {
+                SubcomposeAsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(result.image_url)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = result.name,
+                    modifier = Modifier.size(width = 80.dp, height = 120.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Box(Modifier.fillMaxSize().background(Color(0xff2A2A2A)), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
+                    },
+                    error = {
+                        PosterPlaceholder()
+                    }
+                )
+            } else {
+                PosterPlaceholder()
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(result.name, color = Color.White, fontSize = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun PagingContent(items: LazyPagingItems<Title>, onTitleClick: (Int) -> Unit) {
     when (items.loadState.refresh) {
         is LoadState.Loading -> {
             ShimmerHomeScreen()
         }
         is LoadState.Error -> {
             val error = (items.loadState.refresh as LoadState.Error).error
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Failed to load content", color = Color.White, fontSize = 18.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        error.message ?: "Unknown error",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
-                    )
+                    Text(error.message ?: "Unknown error", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = { items.retry() }) {
                         Text("Retry")
@@ -355,10 +345,7 @@ private fun PagingContent(
         }
         is LoadState.NotLoading -> {
             if (items.itemCount == 0) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("No titles available", color = Color.White, fontSize = 18.sp)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -368,46 +355,30 @@ private fun PagingContent(
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
                     items(count = items.itemCount) { index ->
                         items[index]?.let { title ->
-                            TitleListItem(
-                                title = title,
-                                onClick = { onTitleClick(title.id) }
-                            )
+                            TitleListItem(title = title, onClick = { onTitleClick(title.id) })
                         }
                     }
                     when (items.loadState.append) {
                         is LoadState.Loading -> {
                             item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                     CircularProgressIndicator(color = Color.White)
                                 }
                             }
                         }
                         is LoadState.Error -> {
                             item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                     Button(onClick = { items.retry() }) {
                                         Text("Load More")
                                     }
                                 }
                             }
                         }
-                        else -> {}
+                        else -> { }
                     }
                 }
             }
@@ -415,43 +386,24 @@ private fun PagingContent(
     }
 }
 
-
 @SuppressLint("DefaultLocale")
 @Composable
 fun TitleListItem(title: Title, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xff1E1E1E)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
+        modifier = Modifier.fillMaxWidth().padding(8.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xff1E1E1E)),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
         Row(modifier = Modifier.padding(12.dp)) {
             if (!title.poster.isNullOrEmpty()) {
                 SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(title.poster)
-                        .crossfade(true)
-                        .build(),
+                    model = ImageRequest.Builder(LocalContext.current).data(title.poster).crossfade(true).build(),
                     contentDescription = title.title,
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(120.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                    modifier = Modifier.width(80.dp).height(120.dp).clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop,
                     loading = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xff2A2A2A)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
+                        Box(modifier = Modifier.fillMaxSize().background(Color(0xff2A2A2A)), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                         }
                     },
                     error = {
@@ -493,11 +445,7 @@ fun TitleListItem(title: Title, onClick: () -> Unit) {
 @Composable
 fun PosterPlaceholder() {
     Box(
-        modifier = Modifier
-            .width(80.dp)
-            .height(120.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xff2A2A2A)),
+        modifier = Modifier.width(80.dp).height(120.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xff2A2A2A)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -513,36 +461,20 @@ fun PosterPlaceholder() {
 private fun NetworkBanner(networkStatus: ConnectivityObserver.Status, showConnectedBanner: Boolean) {
     Column {
         AnimatedVisibility(
-            visible = networkStatus == ConnectivityObserver.Status.Lost
-                    || networkStatus == ConnectivityObserver.Status.Unavailable,
+            visible = networkStatus == ConnectivityObserver.Status.Lost || networkStatus == ConnectivityObserver.Status.Unavailable,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
         ) {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 color = Color(0xFFD32F2F),
                 shape = RoundedCornerShape(8.dp),
                 shadowElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "No network",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.Warning, contentDescription = "No network", tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "No internet connection",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text("No internet connection", color = Color.White, fontSize = 14.sp, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -552,30 +484,15 @@ private fun NetworkBanner(networkStatus: ConnectivityObserver.Status, showConnec
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
         ) {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 color = Color(0xFF388E3C),
                 shape = RoundedCornerShape(8.dp),
                 shadowElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Connected",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Connected", tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Back online",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text("Back online", color = Color.White, fontSize = 14.sp, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

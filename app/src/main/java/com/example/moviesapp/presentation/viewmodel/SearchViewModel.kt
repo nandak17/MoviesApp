@@ -8,21 +8,27 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.filter
 import androidx.paging.rxjava3.cachedIn
+import com.example.moviesapp.BuildConfig
+import com.example.moviesapp.data.model.AutocompleteResult
 import com.example.moviesapp.data.model.Title
+import com.example.moviesapp.data.remote.WatchmodeApiService
 import com.example.moviesapp.data.repository.TitleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val repository: TitleRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val watchmodeApiService: WatchmodeApiService
 ) : ViewModel() {
 
     companion object {
@@ -41,23 +47,51 @@ class SearchViewModel @Inject constructor(
     private val _filteredPagingData = MutableStateFlow<PagingData<Title>>(PagingData.empty())
     val filteredPagingData: StateFlow<PagingData<Title>> = _filteredPagingData.asStateFlow()
 
+    private val _autocompleteResults = MutableStateFlow<List<AutocompleteResult>>(emptyList())
+    val autocompleteResults: StateFlow<List<AutocompleteResult>> = _autocompleteResults.asStateFlow()
+
     private val disposables = CompositeDisposable()
 
     init {
         loadMovies()
     }
 
+    fun searchAutocomplete(query: String) {
+        if (query.isBlank()) {
+            _autocompleteResults.value = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            disposables.add(
+                watchmodeApiService.autocompleteSearch(
+                    apiKey = BuildConfig.WATCHMODE_API_KEY,
+                    query = query,
+                    searchType = 1
+                )
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(
+                        { response ->
+                            _autocompleteResults.value = response.results
+                        },
+                        { error ->
+                            Log.e(TAG, "Autocomplete search failed", error)
+                            _autocompleteResults.value = emptyList()
+                        }
+                    )
+            )
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadMovies() {
         Log.d(TAG, "Loading movies for search")
-
         disposables.add(
             repository.getMoviesPaged()
                 .cachedIn(viewModelScope)
                 .subscribe(
                     { pagingData ->
                         _allMoviesPagingData.value = pagingData
-                        // Initially show all movies
                         if (_searchQuery.value.isEmpty()) {
                             _filteredPagingData.value = pagingData
                         }
@@ -69,35 +103,6 @@ class SearchViewModel @Inject constructor(
         )
     }
 
-    fun onSearchQueryChange(query: String) {
-        _searchQuery.value = query
-        savedStateHandle[KEY_SEARCH_QUERY] = query
-
-        Log.d(TAG, "Search query changed: $query")
-
-        if (query.isBlank()) {
-
-            _filteredPagingData.value = _allMoviesPagingData.value
-        } else {
-
-            disposables.add(
-                repository.getMoviesPaged()
-                    .map { pagingData ->
-                        pagingData.filter { title ->
-                            title.title.contains(query, ignoreCase = true)
-                        }
-                    }
-                    .subscribe(
-                        { filteredData ->
-                            _filteredPagingData.value = filteredData
-                        },
-                        { error ->
-                            Log.e(TAG, "Error filtering", error)
-                        }
-                    )
-            )
-        }
-    }
 
     override fun onCleared() {
         super.onCleared()

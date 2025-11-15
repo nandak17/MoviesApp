@@ -5,8 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "titles")
 data class TitleEntity(
-    @PrimaryKey
-    val id: Int,
+    @PrimaryKey val id: Int,
     val title: String,
     val type: String,
     val year: Int?,
@@ -14,13 +13,14 @@ data class TitleEntity(
     val tmdb_id: Int?,
     val poster: String?,
     val user_rating: Double?,
+    val source_release_date: String?,
+    val genres: String?,
     val lastUpdated: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "title_details")
 data class TitleDetailsEntity(
-    @PrimaryKey
-    val id: Int,
+    @PrimaryKey val id: Int,
     val title: String,
     val original_title: String?,
     val plot_overview: String?,

@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.moviesapp.data.model.PersonCredit
+import com.example.moviesapp.data.model.StreamingServiceInfo
 import com.example.moviesapp.data.model.TitleDetails
 import com.example.moviesapp.data.network.ConnectivityObserver
 import com.example.moviesapp.data.repository.TitleRepository
@@ -41,6 +42,9 @@ class DetailsViewModel @Inject constructor(
     }
 
     private val titleId: Int = checkNotNull(savedStateHandle["titleId"])
+
+    private val _cachedSources = MutableStateFlow<Map<Int, StreamingServiceInfo>>(emptyMap())
+    val cachedSources: StateFlow<Map<Int, StreamingServiceInfo>> = _cachedSources.asStateFlow()
 
     private val _uiState = MutableStateFlow<DetailsUiState>(DetailsUiState.Loading)
     val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()

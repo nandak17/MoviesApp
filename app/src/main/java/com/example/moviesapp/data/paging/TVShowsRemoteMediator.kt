@@ -1,4 +1,3 @@
-// data/paging/TVShowsRemoteMediator.kt
 package com.example.moviesapp.data.paging
 
 import android.util.Log
@@ -10,6 +9,7 @@ import com.example.moviesapp.data.local.dao.TitleDao
 import com.example.moviesapp.data.local.entity.TitleEntity
 import com.example.moviesapp.data.mapper.toEntity
 import com.example.moviesapp.data.remote.WatchmodeApiService
+import com.example.moviesapp.presentation.viewmodel.SortOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -17,7 +17,9 @@ import kotlinx.coroutines.withContext
 class TVShowsRemoteMediator(
     private val apiService: WatchmodeApiService,
     private val titleDao: TitleDao,
-    private val apiKey: String
+    private val apiKey: String,
+    private val sortOption: SortOption,
+    private val genreIds: List<Int> = emptyList()
 ) : RemoteMediator<Int, TitleEntity>() {
 
     companion object {
@@ -32,37 +34,39 @@ class TVShowsRemoteMediator(
     ): MediatorResult {
         return try {
             val page = when (loadType) {
-                LoadType.REFRESH -> 1
+                LoadType.REFRESH -> {
+                    currentPage = 1
+                    1
+                }
                 LoadType.PREPEND -> return MediatorResult.Success(endOfPaginationReached = true)
                 LoadType.APPEND -> currentPage + 1
             }
 
-            Log.d(TAG, "Loading page: $page")
-
+            val genresParam = if (genreIds.isNotEmpty()) genreIds.joinToString(",") else null
+            Log.d(TAG, "Loading page: $page with genres: $genresParam and sort: ${sortOption.apiValue}")
 
             val response = withContext(Dispatchers.IO) {
                 apiService.getTvShows(
                     apiKey = apiKey,
                     limit = 50,
-                    page = page
+                    page = page,
+                    sortBy = sortOption.apiValue,
+                    genres = genresParam
                 ).blockingGet()
             }
 
-            // Deleting old data on refresh
             if (loadType == LoadType.REFRESH) {
                 withContext(Dispatchers.IO) {
                     titleDao.deleteByType("tv_series").blockingAwait()
                 }
             }
 
-            // Inserting new data
             val entities = response.titles.map { it.toEntity() }
             withContext(Dispatchers.IO) {
                 titleDao.insertAll(entities).blockingAwait()
             }
 
             currentPage = page
-
             Log.d(TAG, "Cached ${entities.size} TV shows to database")
 
             MediatorResult.Success(endOfPaginationReached = response.titles.isEmpty())

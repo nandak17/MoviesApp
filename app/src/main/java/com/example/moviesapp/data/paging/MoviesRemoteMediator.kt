@@ -1,6 +1,3 @@
-package com.example.moviesapp.data.paging
-
-import android.util.Log
 import androidx.paging.ExperimentalPagingApi
 import androidx.paging.LoadType
 import androidx.paging.PagingState
@@ -9,6 +6,7 @@ import com.example.moviesapp.data.local.dao.TitleDao
 import com.example.moviesapp.data.local.entity.TitleEntity
 import com.example.moviesapp.data.mapper.toEntity
 import com.example.moviesapp.data.remote.WatchmodeApiService
+import com.example.moviesapp.presentation.viewmodel.SortOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,57 +14,52 @@ import kotlinx.coroutines.withContext
 class MoviesRemoteMediator(
     private val apiService: WatchmodeApiService,
     private val titleDao: TitleDao,
-    private val apiKey: String
+    private val apiKey: String,
+    private val sortOption: SortOption,
+    private val genreIds: List<Int>
 ) : RemoteMediator<Int, TitleEntity>() {
-
-    companion object {
-        private const val TAG = "MoviesRemoteMediator"
-    }
 
     private var currentPage = 1
 
-    override suspend fun load(
-        loadType: LoadType,
-        state: PagingState<Int, TitleEntity>
-    ): MediatorResult {
-        return try {
+    override suspend fun load(loadType: LoadType, state: PagingState<Int, TitleEntity>): MediatorResult {
+        try {
             val page = when (loadType) {
-                LoadType.REFRESH -> 1
+                LoadType.REFRESH -> {
+                    currentPage = 1
+                    1
+                }
                 LoadType.PREPEND -> return MediatorResult.Success(endOfPaginationReached = true)
                 LoadType.APPEND -> currentPage + 1
             }
 
-            Log.d(TAG, "Loading page: $page")
+            val genresParam = if (genreIds.isNotEmpty()) genreIds.joinToString(",") else null
 
             val response = withContext(Dispatchers.IO) {
                 apiService.getMovies(
                     apiKey = apiKey,
                     limit = 50,
-                    page = page
+                    page = page,
+                    sortBy = sortOption.apiValue,
+                    genres = genresParam
                 ).blockingGet()
             }
 
-            // Deleting old data on refresh
             if (loadType == LoadType.REFRESH) {
                 withContext(Dispatchers.IO) {
                     titleDao.deleteByType("movie").blockingAwait()
                 }
             }
 
-            // Inserting new data
             val entities = response.titles.map { it.toEntity() }
             withContext(Dispatchers.IO) {
                 titleDao.insertAll(entities).blockingAwait()
             }
-
             currentPage = page
 
-            Log.d(TAG, "Cached ${entities.size} movies to database")
-
-            MediatorResult.Success(endOfPaginationReached = response.titles.isEmpty())
+            return MediatorResult.Success(endOfPaginationReached = response.titles.isEmpty())
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading movies", e)
-            MediatorResult.Error(e)
+            return MediatorResult.Error(e)
         }
     }
 }
+

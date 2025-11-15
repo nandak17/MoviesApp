@@ -12,10 +12,12 @@ fun Title.toEntity(): TitleEntity {
         title = title,
         type = type,
         year = year,
+        source_release_date = source_release_date,
         imdb_id = imdb_id,
         tmdb_id = tmdb_id,
         poster = poster,
-        user_rating = user_rating
+        user_rating = user_rating,
+        genres = genres?.joinToString(",")
     )
 }
 
@@ -25,10 +27,12 @@ fun TitleEntity.toModel(): Title {
         title = title,
         type = type,
         year = year,
+        source_release_date = source_release_date,
         imdb_id = imdb_id,
         tmdb_id = tmdb_id,
         poster = poster,
-        user_rating = user_rating
+        user_rating = user_rating,
+        genres = listOf(28)
     )
 }
 
@@ -70,7 +74,7 @@ fun TitleDetailsEntity.toModel(): TitleDetails {
         backdrop = backdrop,
         original_language = original_language,
         genres = try {
-            gson.fromJson(genres, List::class.java) as? List<Int>
+            gson.fromJson(genres, List::class.java)?.mapNotNull { (it as? Double)?.toInt() }
         } catch (e: Exception) {
             null
         },
@@ -79,7 +83,8 @@ fun TitleDetailsEntity.toModel(): TitleDetails {
         } catch (e: Exception) {
             null
         },
-        tmdb_id = TODO(),
-        imdb_id = TODO()
+        tmdb_id = null,
+        imdb_id = null,
+        sources = null
     )
 }

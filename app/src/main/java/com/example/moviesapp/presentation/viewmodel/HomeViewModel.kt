@@ -1,40 +1,37 @@
-
 package com.example.moviesapp.presentation.viewmodel
 
+import android.annotation.SuppressLint
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.rxjava3.cachedIn
-import com.example.moviesapp.data.model.PersonCredit
+import com.example.moviesapp.data.model.Genre
 import com.example.moviesapp.data.model.Title
 import com.example.moviesapp.data.network.ConnectivityObserver
-import com.example.moviesapp.data.remote.WatchmodeApiService
 import com.example.moviesapp.data.repository.TitleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.lang.Exception
 import javax.inject.Inject
 
 enum class ContentType {
     MOVIES, TV_SHOWS
 }
 
-enum class SortOption(val displayName: String) {
-    RATING_DESC("Rating: High to Low"),
-    RATING_ASC("Rating: Low to High"),
-    YEAR_DESC("Year: Newest First"),
-    YEAR_ASC("Year: Oldest First"),
-    TITLE_ASC("Title: A to Z"),
-    TITLE_DESC("Title: Z to A")
+enum class SortOption(val apiValue: String) {
+    YEAR_DESC("release_date_desc"),
+    YEAR_ASC("release_date_asc"),
+    TITLE_ASC("title_asc"),
+    TITLE_DESC("title_desc")
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TitleRepository,
@@ -48,14 +45,12 @@ class HomeViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(ContentType.MOVIES)
     val selectedTab: StateFlow<ContentType> = _selectedTab.asStateFlow()
 
-    private val _sortOption = MutableStateFlow(SortOption.RATING_DESC)
-    val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
 
-    private val _moviesPagingData = MutableStateFlow<PagingData<Title>>(PagingData.empty())
-    val moviesPagingData: StateFlow<PagingData<Title>> = _moviesPagingData.asStateFlow()
+    private val _genres = MutableStateFlow<List<Genre>>(emptyList())
+    val genres: StateFlow<List<Genre>> = _genres.asStateFlow()
 
-    private val _tvShowsPagingData = MutableStateFlow<PagingData<Title>>(PagingData.empty())
-    val tvShowsPagingData: StateFlow<PagingData<Title>> = _tvShowsPagingData.asStateFlow()
+    private val _selectedGenres = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedGenres: StateFlow<Set<Int>> = _selectedGenres.asStateFlow()
 
     private val _networkStatus = MutableStateFlow(ConnectivityObserver.Status.Available)
     val networkStatus: StateFlow<ConnectivityObserver.Status> = _networkStatus.asStateFlow()
@@ -63,24 +58,43 @@ class HomeViewModel @Inject constructor(
     private val disposables = CompositeDisposable()
     private var wasDisconnected = false
 
+    private val _releases = MutableStateFlow<List<Title>>(emptyList())
+    val releases: StateFlow<List<Title>> = _releases.asStateFlow()
+
+
     init {
         Log.d(TAG, "HomeViewModel initialized")
         observeNetworkStatus()
-        observeSortChanges()
-        loadMovies()
-        loadTVShows()
+        loadGenres()
+        loadRecentReleases()
     }
 
-    private fun observeSortChanges() {
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun loadRecentReleases() {
         viewModelScope.launch {
-            _sortOption
-                .drop(1)
-                .distinctUntilChanged()
-                .collect { newSort ->
-                    Log.d(TAG, "Sort changed to: ${newSort.displayName}")
-                    reloadData()
-                }
+            try {
+                val recent = repository.getRecentReleases()
+                _releases.value = recent
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load recent releases", e)
+            }
         }
+    }
+
+    @SuppressLint("CheckResult")
+    fun loadGenres() {
+        repository.getGenres()
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({ genresList -> _genres.value = genresList },
+                { error ->
+                    Log.e(TAG, "Failed to load genres", error) })
+    }
+
+
+    fun setSelectedTab(tab: ContentType) {
+        _selectedTab.value = tab
+        loadRecentReleases()
     }
 
     private fun observeNetworkStatus() {
@@ -95,66 +109,17 @@ class HomeViewModel @Inject constructor(
                     Log.d(TAG, "Network lost - marking for reload")
                 }
 
-                if (status == ConnectivityObserver.Status.Available && wasDisconnected) {
+                if (status == ConnectivityObserver.Status.Available
+                    && wasDisconnected) {
                     Log.d(TAG, "Network restored - auto-reloading data")
                     wasDisconnected = false
                     delay(500)
-                    reloadData()
+                    loadRecentReleases()
                 }
             }
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun loadMovies() {
-        disposables.add(
-            repository.getMoviesPaged(_sortOption.value)
-                .cachedIn(viewModelScope)
-                .subscribe(
-                    { pagingData ->
-                        Log.d(TAG, "✅ Movies loaded successfully with sort: ${_sortOption.value.displayName}")
-                        _moviesPagingData.value = pagingData
-                    },
-                    { error ->
-                        Log.e(TAG, "❌ Error loading movies: ${error.message}", error)
-                    }
-                )
-        )
-    }
-
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun loadTVShows() {
-        disposables.add(
-            repository.getTVShowsPaged(_sortOption.value)
-                .cachedIn(viewModelScope)
-                .subscribe(
-                    { pagingData ->
-                        Log.d(TAG, "✅ TV shows loaded successfully with sort: ${_sortOption.value.displayName}")
-                        _tvShowsPagingData.value = pagingData
-                    },
-                    { error ->
-                        Log.e(TAG, "❌ Error loading TV shows: ${error.message}", error)
-                    }
-                )
-        )
-    }
-
-    fun reloadData() {
-        Log.d(TAG, "Reloading all data")
-        disposables.clear()
-        loadMovies()
-        loadTVShows()
-    }
-
-    fun setSelectedTab(tab: ContentType) {
-        _selectedTab.value = tab
-    }
-
-    fun setSortOption(option: SortOption) {
-        Log.d(TAG, "Setting sort option: ${option.displayName}")
-        _sortOption.value = option
-    }
 
     override fun onCleared() {
         super.onCleared()

@@ -28,6 +28,12 @@ interface TitleDao {
     @Query("SELECT * FROM titles WHERE type = 'movie' ORDER BY title DESC")
     fun getMoviesByTitleDesc(): PagingSource<Int, TitleEntity>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAll(titles: List<TitleEntity>): Completable
+
+    @Query("DELETE FROM titles WHERE type = :type")
+    fun deleteByType(type: String): Completable
+
     // TV Shows
     @Query("SELECT * FROM titles WHERE type = 'tv_series' ORDER BY user_rating DESC")
     fun getTVShowsByRatingDesc(): PagingSource<Int, TitleEntity>
@@ -48,16 +54,12 @@ interface TitleDao {
     fun getTVShowsByTitleDesc(): PagingSource<Int, TitleEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertAll(titles: List<TitleEntity>): Completable
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(title: TitleEntity): Completable
-
-    @Query("DELETE FROM titles WHERE type = :type")
-    fun deleteByType(type: String): Completable
 
     @Query("DELETE FROM titles")
     fun deleteAll(): Completable
+
+
 }
 
 

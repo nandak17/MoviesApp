@@ -18,5 +18,17 @@ data class StreamingSource(
     val format: String?,
     val price: Double?,
     val seasons: Int?,
-    val episodes: Int?
+    val episodes: Int?,
 ) : Parcelable
+
+data class StreamingServiceInfo(
+    val id: Int,
+    val name: String,
+    val type: String,
+    val logo_100px: String?,
+    val ios_appstore_url: String?,
+    val android_playstore_url: String?,
+    val web_url : String?,
+    val regions: List<String>?
+)
+

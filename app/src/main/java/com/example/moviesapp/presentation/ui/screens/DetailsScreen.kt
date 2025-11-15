@@ -2,6 +2,7 @@ package com.example.moviesapp.presentation.ui.screens
 
 import android.annotation.SuppressLint
 import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,21 +38,27 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.example.moviesapp.data.model.PersonCredit
+import com.example.moviesapp.data.model.StreamingServiceInfo
 import com.example.moviesapp.data.model.StreamingSource
 import com.example.moviesapp.data.model.TitleDetails
 import com.example.moviesapp.data.network.ConnectivityObserver
+import com.example.moviesapp.data.remote.openPlayStoreUrl
 import com.example.moviesapp.presentation.ui.components.ShimmerDetailsScreen
 import com.example.moviesapp.presentation.viewmodel.DetailsUiState
 import com.example.moviesapp.presentation.viewmodel.DetailsViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 @Composable
 fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
     val networkStatus by viewModel.networkStatus.collectAsState(initial = ConnectivityObserver.Status.Available)
-
     var previousNetworkStatus by remember { mutableStateOf<ConnectivityObserver.Status?>(null) }
     var showConnectedBanner by remember { mutableStateOf(false) }
+    val cachedSources by viewModel.cachedSources.collectAsState()
+
 
     LaunchedEffect(networkStatus) {
         if (previousNetworkStatus != null &&
@@ -79,6 +86,7 @@ fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: ()
                     details = state.details,
                     cast = state.cast,
                     crew = state.crew,
+                    cachedSources = cachedSources,
                     onBackClick = onBackClick
                 )
             }
@@ -110,11 +118,13 @@ fun DetailsScreen(viewModel: DetailsViewModel = hiltViewModel(), onBackClick: ()
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 private fun DetailsContent(
     details: TitleDetails,
     cast: List<PersonCredit>,
     crew: List<PersonCredit>,
+    cachedSources: Map<Int, StreamingServiceInfo>,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -358,7 +368,7 @@ private fun DetailsContent(
 
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(typeSources.distinctBy { it.name }) { source ->
-                                    StreamingPlatformCard(source)
+                                    StreamingPlatformCard(source,cachedSources)
                                 }
                             }
 
@@ -382,7 +392,7 @@ private fun DetailsContent(
                             name = castMember.full_name,
                             role = castMember.role,
                             imageUrl = castMember.headshot_url,
-                            onClick = { /* Handle click if needed */ }
+                            onClick = {  }
                         )
                     }
                 }
@@ -484,9 +494,17 @@ fun CastCrewItem(name: String, role: String, imageUrl: String?, onClick: () -> U
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun StreamingPlatformCard(source: StreamingSource) {
+private fun StreamingPlatformCard(source: StreamingSource,cachedSources: Map<Int, StreamingServiceInfo>) {
+
+    val context = LocalContext.current
+    val sourceInfo = cachedSources[source.source_id]
     Card(
-        modifier = Modifier.width(100.dp),
+        modifier = Modifier.width(100.dp)
+            .clickable {
+                source.web_url?.let { url ->
+                    openPlayStoreUrl(context, url)
+                }
+            },
         colors = CardDefaults.cardColors(
             containerColor = Color(0xff2A2A2A)
         ),

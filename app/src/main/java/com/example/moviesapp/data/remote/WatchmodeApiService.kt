@@ -19,18 +19,20 @@ interface WatchmodeApiService {
     fun getMovies(
         @Query("apiKey") apiKey: String,
         @Query("types") types: String = "movie",
-        @Query("limit") limit: Int = 250,
+        @Query("limit") limit: Int = 50,
         @Query("page") page: Int = 1,
-        @Query("sort_by") sortBy: String = "popularity_desc"
+        @Query("genres") genres: String? = null,
+        @Query("sort_by") sortBy: String? = null
     ): Single<ListTitlesResponse>
 
     @GET("list-titles/")
     fun getTvShows(
         @Query("apiKey") apiKey: String,
         @Query("types") types: String = "tv_series",
-        @Query("limit") limit: Int = 250,
+        @Query("limit") limit: Int = 50,
         @Query("page") page: Int = 1,
-        @Query("sort_by") sortBy: String = "popularity_desc"
+        @Query("genres") genres: String? = null,
+        @Query("sort_by") sortBy: String? = null
     ): Single<ListTitlesResponse>
 
     @GET("title/{title_id}/details/")
@@ -52,6 +54,21 @@ interface WatchmodeApiService {
         @Query("apiKey") apiKey: String = BuildConfig.WATCHMODE_API_KEY
     ): Single<List<PersonCredit>>
 
+    @GET("sources/")
+    fun getSources(
+        @Query("apiKey") apiKey: String = BuildConfig.WATCHMODE_API_KEY
+    ): Single<List<StreamingServiceInfo>>
 
+    @GET("genres/")
+    fun getGenres(
+        @Query("apiKey") apiKey: String
+    ): Single<List<Genre>>
+
+        @GET("releases/")
+        suspend fun getReleases(
+            @Query("apiKey") apiKey: String,
+            @Query("start_date") startDate: String? = null,
+            @Query("end_date") endDate: String? = null
+        ): ReleasesResponse
 
 }

@@ -69,11 +69,12 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 
 | Home Screen | Details Screen |
 |-------------|---------------|
-| <img src="https://github.com/user-attachments/assets/59d77090-8ded-474e-86f2-739e99e188e9" width="300"/> | <img src="https://github.com/user-attachments/assets/b6228c66-3f74-4faa-b356-4f7106c10734" width="300"/> |
+| <img width="300" alt="image" src="https://github.com/user-attachments/assets/95040aa8-ad5d-41d6-840b-8ca07c8953f8" /> | <img width="300" alt="image" src="https://github.com/user-attachments/assets/b086f13a-e1fe-4180-b10c-70deade3ecc4" />
+ |
 
 | Filters | Search Screen |
 |-------------|---------------|
-| <img src="https://github.com/user-attachments/assets/0f18bd47-7b6e-4899-ae3d-650c47ab631f" width="300" />| <img width="300" src="https://github.com/user-attachments/assets/80fdad93-7384-4629-8d30-e0c2bd710150" /> |
+| <img width="300" alt="image" src="https://github.com/user-attachments/assets/abe74227-a53c-4589-aea7-5958889d67d4" /> | <img width="300" alt="image" src="https://github.com/user-attachments/assets/4826edc7-c7fb-4e38-ba11-ba5687a7f60c" /> |
 
 
 ## Future Work

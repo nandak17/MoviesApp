@@ -22,7 +22,7 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 ## Architecture & Design
 
 - MVVM Architecture for clean separation  
-- RxKotlin & Retrofit for effective networking  
+- Retrofit for effective networking  
 - Jetpack Compose for declarative UI  
 - Room as local database cache  
 - Hilt for dependency injection
@@ -58,7 +58,6 @@ Welcome to **MoviesApp**, the app to discover and browse movies and TV shows usi
 
 - Kotlin  
 - Jetpack Compose  
-- RxKotlin (Single.zip)  
 - Retrofit  
 - Room  
 - Hilt (DI)  
